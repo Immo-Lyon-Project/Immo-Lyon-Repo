@@ -4,7 +4,7 @@ plotly
 scipy
 requests
 pydeck
-json
+#json
 matplotlib
 geopy
 shapely
