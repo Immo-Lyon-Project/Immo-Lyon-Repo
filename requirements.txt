@@ -1,3 +1,10 @@
 streamlit
 pandas
 plotly
+scipy
+requests
+pydeck
+json
+matplotlib
+geopy
+shapely

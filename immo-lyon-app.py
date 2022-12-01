@@ -1,63 +1,119 @@
 import streamlit as st
+import scipy
+import requests
 import pandas as pd
 import plotly.express as px 
 import plotly.graph_objects as go
 import numpy as np
+import pydeck as pdk
+from geopy.geocoders import Nominatim
+from geopy.distance import great_circle as GRC
+from shapely.geometry import Point
+import json
+import plotly.figure_factory as ff
+import matplotlib.pyplot as plt
 
-### Config
+
+END_NOMINATIM =  "https://nominatim.openstreetmap.org/"
+APPARTMENT = "Appartement"
+HOUSE = "Maison"
+
+df = pd.read_csv("C:\projet_jedha\immo_lyon17_22Epuré.csv", low_memory = False)
+
+### Configuration
 st.set_page_config(
-    page_title="Covid Tracker",
-    page_icon="😷",
+    page_title="Ventefacile",
+    page_icon="🦠 ",
     layout="wide"
 )
 
-DATA_URL = ('https://opendata.ecdc.europa.eu/covid19/nationalcasedeath_eueea_daily_ei/csv/data.csv')
-
-@st.cache(allow_output_mutation=True)
-def load_data():
-    data = pd.read_csv(DATA_URL)
-    return data
-
-
-
 ### App
-st.title("Covid Tracker")
+st.title('Valeur de mon bien')
+st.markdown("👋 Bonjour et bienvenue sur cette application qui vous servira à évaluer votre bien immobilier sur la ville de LYON")
+st.caption("Les données utilisées proviennent de la période entre le 01 Juillet 2017 et le 30 Juin 2022")
+st.subheader('veuillez entrer les différentes caractéristiques de votre bien')
 
-st.markdown("""
-            👋 Hello there! Welcome to this simple covid tracker app. We simply track the evolution of cases accross the world. Data comes from the European Centre for Disease Prevention and Control (ECDC)
+col1, col2, col3, col4 = st.columns(4)
+with col1 :
+    option = st.selectbox(
+    'Dans quel arrondissement se situe votre bien ?',
+    ('1er', '2e', '3e','4e','5e','6e','7e','8e','9e'))
+    st.write("Votre arrondissement est le : ",option)
+with col2 :
+    number = st.number_input('Entrez le numéro de votre adresse',value = 45, step = 1 )
+    st.write("le numéro de l'adresse est : ", number)
+with col3 :
+    name = st.text_input("Entrez le nom de la rue", value = "rue de la bourse")
+    st.write("le nom de la rue est : ",name)
+with col4 :
+    post = st.number_input("Entrez le code postale de votre bien", value = 69002, min_value = 69000, max_value = 69009, step = 1)
+    st.write("le code postale est :",post)
 
-            Check out data here: [Data on the daily number of new reported COVID-19 cases and deaths by EU/EEA country](https://www.ecdc.europa.eu/en/publications-data/data-daily-new-cases-covid-19-eueea-country)
-            """)
+col5, col6, col7 = st.columns(3)
+with col5 :
+    apoumaiz = st.selectbox(
+    'Votre bien est il un Appartement ou une Maison ?', 
+    (APPARTMENT, HOUSE))
+    if apoumaiz == APPARTMENT :
+        st.write("Il s'agit d'un", apoumaiz)
+    else :
+        st.write("Il s'agit d'une", apoumaiz)
+with col6 :
+    nombre = st.number_input("Combien de pièce votre bien possède-t-il ?", value = 1, min_value = 1, max_value = 21, step = 1)
+    if nombre == 1 :
+        st.write("Votre bien possède ", nombre, "pièce")
+    else :
+        st.write("Votre bien possède ", nombre, "pièces")
+with col7 : 
+    surf = st.number_input("Quelle est la surface habitable ?", value = 0, step = 1)
+    st.write("La surface habitable est de ", surf, "m²")
 
-st.caption('At the moment of this app, data was lastly collected on December 25th 2021')
+adress = str(number) + " " + name
 
-data_load_state = st.text('Loading data...')
-data = load_data()
+#locator = Nominatim(user_agent="galli.vincent.ts6@live.fr")
+locations = requests.get(END_NOMINATIM+"search", params={'city':"LYON", "street" : adress, "postalcode" : post, "country" : "FRANCE", "format":"json"} ).json() 
 
-data['dateRep']= pd.to_datetime(data['dateRep'])
-data.sort_values('dateRep')
-data_cumulated_cases = data.groupby(['dateRep'], as_index=False).sum()
-data_cumulated_cases.sort_values('dateRep')
-data_cumulated_cases['cumSumCases'] = data_cumulated_cases['cases'].cumsum()
-data_cumulated_cases['avgCases'] = data_cumulated_cases['cases'].rolling(7).mean()
-data_cumulated_cases.fillna(0)
+for location in locations :
+    if location["osm_type"] == "node":
+        place = location
+    else :
+        print("L'adresse mentionnée comporte une faute, veuillez rentrer la bone adresse.")
 
-agree = st.checkbox('Show raw data')
+point1 = (float(place["lat"]), float(place["lon"]))
 
-if agree:
-    st.header("Raw data")
-    st.dataframe(data)
+list_gps = []
+for longitude, latitude in zip(df.longitude, df.latitude):
+    list_gps.append((latitude, longitude))
 
+df['tuple_gps'] = list_gps
 
+my_dist = []
+for coordinate in df.tuple_gps:
+            #print(count)
+            point2 = coordinate
+            result = GRC(point1,point2).m
+            result = round(result,2)
+            my_dist.append(result)
+df["distance"] = my_dist
 
-st.header("World Analysis")
+df_map = df.filter(items = ["distance", "valeur_fonciere","latitude", "longitude","type_local"])
+if apoumaiz == APPARTMENT :
+    mask_appart = df_map['type_local'] == APPARTMENT
+    df_map = df_map[mask_appart]
+else :
+    mask_house = df_map["type_local"] == HOUSE
+    df_map = df_map[mask_house]
 
-st.subheader("Cumulated cases")
+df_map = df_map.sort_values(by = ["distance"], ascending = True)
+df_map = df_map[:10]
+print(df_map)
 
-fig = px.area(data_cumulated_cases, y="cumSumCases", x="dateRep")
-st.plotly_chart(fig, use_container_width=True)
+fig = px.scatter_mapbox(df_map, lat="latitude", lon="longitude", mapbox_style = 'carto-positron', color="type_local", size="valeur_fonciere", 
+                center={"lat":float(place["lat"]),"lon":float(place["lon"])},
+                color_continuous_scale=px.colors.cyclical.IceFire, size_max=15, zoom=12)
 
-st.subheader("New cases")
+plot_spot = st.empty() # holding the spot for the graph
 
-fig = px.line(data_cumulated_cases, y=["cases", "avgCases"], x="dateRep")
-st.plotly_chart(fig, use_container_width=True)
+#send the plotly chart to it's spot "in the line" 
+with plot_spot:
+   st.plotly_chart(fig, use_container_width=True)
