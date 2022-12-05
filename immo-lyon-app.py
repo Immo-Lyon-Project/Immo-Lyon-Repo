@@ -19,7 +19,7 @@ END_NOMINATIM =  "https://nominatim.openstreetmap.org/"
 APPARTMENT = "Appartement"
 HOUSE = "Maison"
 
-df = pd.read_csv("C:\immo_lyon17_22Epuré.csv", low_memory = False)
+df = pd.read_csv("immo_lyon17_22Epuré.csv", low_memory = False)
 
 ### Configuration
 st.set_page_config(
