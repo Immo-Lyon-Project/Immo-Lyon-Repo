@@ -9,7 +9,6 @@ import numpy as np
 import pydeck as pdk
 from geopy.geocoders import Nominatim
 from geopy.distance import great_circle as GRC
-from shapely.geometry import Point
 import json
 import plotly.figure_factory as ff
 import matplotlib.pyplot as plt
