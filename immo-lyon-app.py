@@ -14,7 +14,7 @@ import json
 import plotly.figure_factory as ff
 import matplotlib.pyplot as plt
 
-MODEL_FINAL = 'http://localhost:4000/predict'
+MODEL_FINAL = 'https://app-immo-lyon.herokuapp.com/predict'
 END_NOMINATIM =  "https://nominatim.openstreetmap.org/"
 APPARTMENT = "Appartement"
 HOUSE = "Maison"
@@ -63,6 +63,8 @@ with st.form(key='input_data') :
         year_input = st.number_input("Quelle est l'année de construction de votre bien ?", value = 1900, min_value = 1900, max_value = 2022, step = 1)
 
     submitButton = st.form_submit_button(label = 'Envoyer')
+
+pl_plot = st.empty()
 
 if submitButton :
     adress = str(number) + " " + name
@@ -115,10 +117,10 @@ if submitButton :
         color_continuous_scale=px.colors.cyclical.IceFire, size_max=15, zoom=14)
 
     #send the plotly chart to it's spot "in the line" 
-    
-    st.plotly_chart(fig, use_container_width=True)
+    with pl_plot :
+        st.plotly_chart(fig, use_container_width=True)
 
-    dico_input = {"type_batiment" : apoumaiz,
+        dico_input = {"type_batiment" : apoumaiz,
                 "num_piece" : number_room,
                 "surface" : surface,
                 "code_postal" : post,
@@ -127,17 +129,17 @@ if submitButton :
                 "diag" : diag_input,
                 "annee_construction" : year_input}
 
-    #Using the model with the data inputed
-    param = dico_input
-    r = requests.post(MODEL_FINAL, data = json.dumps(param).encode("utf-8"))
-    result = r.json()
-    prix = format(str(int(result['prediction'])),",") 
+        #Using the model with the data inputed
+        param = dico_input
+        r = requests.post(MODEL_FINAL, data = json.dumps(param).encode("utf-8"))
+        result = r.json()
+        prix = format(str(int(result['prediction'])),",") 
 
-    st.markdown("""
-    <style>
-    .big-font {
-    font-size:75px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    st.markdown('<p class="big-font">la valeur de votre bien est de ' + prix + ' €</p>', unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        .big-font {
+        font-size:75px !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        st.markdown('<p class="big-font">la valeur de votre bien est de ' + prix + ' €</p>', unsafe_allow_html=True)
