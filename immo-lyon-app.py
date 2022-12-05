@@ -1,3 +1,4 @@
+
 import streamlit as st
 import scipy
 import requests
@@ -13,92 +14,130 @@ import json
 import plotly.figure_factory as ff
 import matplotlib.pyplot as plt
 
-
+MODEL_FINAL = 'http://localhost:4000/predict'
 END_NOMINATIM =  "https://nominatim.openstreetmap.org/"
 APPARTMENT = "Appartement"
 HOUSE = "Maison"
 
-df = pd.read_csv("immo_lyon17_22Epuré.csv", low_memory = False)
+df = pd.read_csv("C:\immo_lyon17_22Epuré.csv", low_memory = False)
 
 ### Configuration
 st.set_page_config(
-    page_title="Ventefacile",
+    page_title="I(A)mmo-Lyon",
     page_icon="🦠 ",
     layout="wide"
 )
 
 ### App
-st.title('Valeur de mon bien')
+st.title('I(A)mmo-Lyon')
 st.markdown("👋 Bonjour et bienvenue sur cette application qui vous servira à évaluer votre bien immobilier sur la ville de LYON")
 st.caption("Les données utilisées proviennent de la période entre le 01 Juillet 2017 et le 30 Juin 2022")
 st.subheader('veuillez entrer les différentes caractéristiques de votre bien')
 
-with st.form(key='imput_data') :
-    col1, col2, col3 = st.columns(3)
+
+
+#creat a form
+with st.form(key='input_data') :
+    col1, col2, col3, col4 = st.columns(4)
     with col1 :
         number = st.number_input('Entrez le numéro de votre adresse',value = 45, step = 1 )
     with col2 :
         name = st.text_input("Entrez le nom de la rue", value = "rue de la bourse")
     with col3 :
-        post = st.number_input("Entrez le code postale de votre bien", value = 69002, min_value = 69000, max_value = 69009, step = 1)
-
-    col4, col5, col6 = st.columns(3)
+        post = st.number_input("Entrez le code postal de votre bien", value = 69002, min_value = 69000, max_value = 69009, step = 1)
     with col4 :
+        diag_input = st.selectbox(
+        "Quel est le diagnostic énérgétique de votre bien ?",    
+        ("A","B","C","D","E","F","G"))
+
+    col5, col6, col7, col8 = st.columns(4)
+    with col5 :
         apoumaiz = st.selectbox(
         'Votre bien est il un Appartement ou une Maison ?', 
         (APPARTMENT, HOUSE))
-    with col5 :
+    with col6 :
         number_room = st.number_input("Combien de pièce votre bien possède-t-il ?", value = 1, min_value = 1, max_value = 21, step = 1)
-    with col6 : 
+    with col7 : 
         surface = st.number_input("Quelle est la surface habitable ?", value = 0, step = 1)
+    with col8 :
+        year_input = st.number_input("Quelle est l'année de construction de votre bien ?", value = 1900, min_value = 1900, max_value = 2022, step = 1)
+
     submitButton = st.form_submit_button(label = 'Envoyer')
-    if submitButton :
-        adress = str(number) + " " + name
 
-        #locator = Nominatim(user_agent="galli.vincent.ts6@live.fr")
-        locations = requests.get(END_NOMINATIM+"search", params={'city':"LYON", "street" : adress, "postalcode" : post, "country" : "FRANCE", "format":"json"} ).json() 
+if submitButton :
+    adress = str(number) + " " + name
 
-        for location in locations :
-            if location["osm_type"] == "node":
-                place = location
-            else :
-                print("L'adresse mentionnée comporte une faute, veuillez rentrer la bone adresse.")
+    #locator = Nominatim(user_agent="galli.vincent.ts6@live.fr")
+    locations = requests.get(END_NOMINATIM+"search", params={'city':"LYON", "street" : adress, "postalcode" : post, "country" : "FRANCE", "format":"json"} ).json() 
 
-        point1 = (float(place["lat"]), float(place["lon"]))
-
-        list_gps = []
-        for longitude, latitude in zip(df.longitude, df.latitude):
-            list_gps.append((latitude, longitude))
-
-        df['tuple_gps'] = list_gps
-
-        my_dist = []
-        for coordinate in df.tuple_gps:
-                    #print(count)
-                    point2 = coordinate
-                    result = GRC(point1,point2).m
-                    result = round(result,2)
-                    my_dist.append(result)
-        df["distance"] = my_dist
-
-        df_map = df.filter(items = ["distance", "valeur_fonciere","latitude", "longitude","type_local"])
-        if apoumaiz == APPARTMENT :
-            mask_appart = df_map['type_local'] == APPARTMENT
-            df_map = df_map[mask_appart]
+    for location in locations :
+        if location["osm_type"] == "node":
+            place = location
         else :
-            mask_house = df_map["type_local"] == HOUSE
-            df_map = df_map[mask_house]
+            st.error("l'adresse mentionnée comporte une faute, veuillez rentrer la bonne adresse", icon="🚨")
 
-        df_map = df_map.sort_values(by = ["distance"], ascending = True)
-        df_map = df_map[:10]
-        print(df_map)
+    point1 = (float(place["lat"]), float(place["lon"]))
 
-        fig = px.scatter_mapbox(df_map, lat="latitude", lon="longitude", mapbox_style = 'carto-positron', color="valeur_fonciere", size="valeur_fonciere", 
-                        center={"lat":float(place["lat"]),"lon":float(place["lon"])},
-                        color_continuous_scale=px.colors.cyclical.IceFire, size_max=15, zoom=14)
+    list_gps = []
+    for longitude, latitude in zip(df.longitude, df.latitude):
+        list_gps.append((latitude, longitude))
 
-        plot_spot = st.empty() # holding the spot for the graph
-        #send the plotly chart to it's spot "in the line" 
-        with plot_spot:
-            st.plotly_chart(fig, use_container_width=True)
-        
+    df['tuple_gps'] = list_gps
+
+    my_dist = []
+    for coordinate in df.tuple_gps:
+                #print(count)
+                point2 = coordinate
+                result = GRC(point1,point2).m
+                result = round(result,2)
+                my_dist.append(result)
+    df["distance"] = my_dist
+
+    df_map = df.filter(items = ["distance", "valeur_fonciere","latitude", "longitude","type_local","surface_reelle_bati"],)
+    if apoumaiz == APPARTMENT :
+        mask_appart = df_map['type_local'] == APPARTMENT
+        df_map = df_map[mask_appart]
+    else :
+        mask_house = df_map["type_local"] == HOUSE
+        df_map = df_map[mask_house]
+
+    df_map = df_map.sort_values(by = ["distance"], ascending = True)
+    df_map = df_map[:10]
+
+
+    fig = px.scatter_mapbox(df_map, lat="latitude", lon="longitude", 
+        mapbox_style = 'carto-positron', 
+        color="valeur_fonciere", 
+        size="valeur_fonciere", 
+        title="Carte comprenant les 10 plus proches ventes par rapport à votre bien",
+        hover_data={"latitude": False, "longitude" : False, "surface_reelle_bati" : True },
+        center={"lat":float(place["lat"]),"lon":float(place["lon"])},
+        color_continuous_scale=px.colors.cyclical.IceFire, size_max=15, zoom=14)
+
+    #send the plotly chart to it's spot "in the line" 
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+    dico_input = {"type_batiment" : apoumaiz,
+                "num_piece" : number_room,
+                "surface" : surface,
+                "code_postal" : post,
+                "long" : float(place["lon"]),
+                "lat" : float(place["lat"]),
+                "diag" : diag_input,
+                "annee_construction" : year_input}
+
+    #Using the model with the data inputed
+    param = dico_input
+    r = requests.post(MODEL_FINAL, data = json.dumps(param).encode("utf-8"))
+    result = r.json()
+    prix = format(str(int(result['prediction'])),",") 
+
+    st.markdown("""
+    <style>
+    .big-font {
+    font-size:75px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown('<p class="big-font">la valeur de votre bien est de ' + prix + ' €</p>', unsafe_allow_html=True)
